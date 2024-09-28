@@ -1,5 +1,10 @@
-opencv-python-headless
+torch --index-url https://download.pytorch.org/whl/cu124
+torchvision --index-url https://download.pytorch.org/whl/cu124
+torchaudio --index-url https://download.pytorch.org/whl/cu124
+ultralytics
 pandas
 numpy
 matplotlib
-ultralytics
+dearpygui
+
+
