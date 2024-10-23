@@ -15,7 +15,7 @@ else:
     # Если программа запускается в исходном виде
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-model_file = os.path.join(base_path, 'models', 'yolov8m-seg.pt')
+models_folder = os.path.join(base_path, 'models')
 
 
 # Глобальные переменные для хранения путей к файлам
@@ -23,7 +23,7 @@ video_file = None
 coords_file = None
 output_directory = None
 output_video_name = "output.mp4"  # Добавлена переменная для имени выходного файла
-
+model_file = None
 # Глобальная модель и данные
 coords_df = None
 
@@ -163,15 +163,23 @@ def process_video():
 
 # Функции загрузки файлов
 def select_video_file(sender, app_data):
-    global video_file
+    global video_file, coords_file
     video_file = app_data['file_path_name']
     dpg.set_value("video_file_text", video_file)
 
+    # Получение названия видео файла без расширения
+    video_name = os.path.splitext(os.path.basename(video_file))[0]
 
-def select_coords_file(sender, app_data):
-    global coords_file
-    coords_file = app_data['file_path_name']
-    dpg.set_value("coords_file_text", coords_file)
+    # Поиск соответствующего CSV файла в той же директории
+    video_dir = os.path.dirname(video_file)
+    coords_file = os.path.join(video_dir, f"{video_name}_coords.csv")
+
+    if os.path.exists(coords_file):
+        dpg.set_value("coords_file_text", coords_file)
+    else:
+        dpg.set_value("coords_file_text", "CSV file not found")
+
+
 
 
 def select_output_directory(sender, app_data):
@@ -191,6 +199,11 @@ def update_output_directory(sender, app_data):
     global output_directory
     output_directory = app_data
 
+def select_model(sender, app_data):
+    global model_file, models_folder
+    model_file = os.path.join(models_folder, app_data)  # Определяем полный путь к файлу модели
+    dpg.set_value("model_file_text", model_file)  # Устанавливаем значение текста в интерфейсе
+
 
 # Функция для обновления расположения кнопок при изменении размера окна
 def update_button_positions():
@@ -199,9 +212,10 @@ def update_button_positions():
     center_x = (width - button_width) / 2
 
     dpg.set_item_pos("video_button", (center_x, 50))
-    dpg.set_item_pos("video_file_text", (center_x, 100))
-    dpg.set_item_pos("csv_button", (center_x, 130))
-    dpg.set_item_pos("coords_file_text", (center_x, 180))
+    dpg.set_item_pos("coords_file_text", (center_x, 100))
+    dpg.set_item_pos("video_file_text", (center_x, 130))
+    dpg.set_item_pos("model_selector", (center_x, 160))
+    dpg.set_item_pos("model_file_text", (center_x, 180))
     dpg.set_item_pos("dir_button", (center_x, 210))
     dpg.set_item_pos("output_directory_text", (center_x, 260))
     dpg.set_item_pos("output_video_name_text", (center_x, 310))
@@ -229,10 +243,13 @@ with dpg.window(label="Video Processor", pos=(0, 0), width=800, height=600, no_t
     video_button = dpg.add_button(label="Choose Video File", callback=lambda: show_file_dialog("video_file_dialog"),
                                   width=button_width, height=button_height, tag="video_button", pos=(0, 50))
     dpg.add_text("", tag="video_file_text", pos=(0, 100), color=(255, 255, 255))
+    # Добавляем элемент для имени CSV файла
+    dpg.add_text("", tag="coords_file_text")  # Создаем текст для отображения CSV
 
-    csv_button = dpg.add_button(label="Choose CSV File", callback=lambda: show_file_dialog("coords_file_dialog"),
-                                width=button_width, height=button_height, tag="csv_button", pos=(0, 130))
-    dpg.add_text("", tag="coords_file_text", pos=(0, 180), color=(255, 255, 255))
+
+    model_selector = dpg.add_combo(items=os.listdir(models_folder), label="Choose Model", callback=select_model,
+                                   width=button_width, tag="model_selector", pos=(0, 130))
+    dpg.add_text("", tag="model_file_text", pos=(0, 180), color=(255, 255, 255))
 
     dir_button = dpg.add_button(label="Choose Directory", callback=lambda: show_file_dialog("output_directory_dialog"),
                                 width=button_width, height=button_height, tag="dir_button", pos=(0, 210))
@@ -264,7 +281,6 @@ with dpg.window(label="Video Processor", pos=(0, 0), width=800, height=600, no_t
 def show_file_dialog(dialog_id):
     # Скрываем все диалоги перед открытием нового
     dpg.hide_item("video_file_dialog")
-    dpg.hide_item("coords_file_dialog")
     dpg.hide_item("output_directory_dialog")
 
     # Показываем нужный диалог
@@ -276,9 +292,7 @@ with dpg.file_dialog(directory_selector=False, show=False, callback=select_video
                      width=500, height=400):
     dpg.add_file_extension(".mp4")
 
-with dpg.file_dialog(directory_selector=False, show=False, callback=select_coords_file, id="coords_file_dialog",
-                     width=500, height=400):
-    dpg.add_file_extension(".csv")
+
 
 with dpg.file_dialog(directory_selector=True, show=False, callback=select_output_directory,
                      id="output_directory_dialog", width=500, height=400):
